@@ -1,0 +1,113 @@
+<script src="https://code.jquery.com/jquery-1.8.3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/select2/4.0.3/js/select2.min.js"></script>
+
+<button onclick ="showWholeSpreadsheet()">Показать всё</button><button onclick ="runPropertySync()">Синхронизировать атрибуты</button><br>
+<label for="typeSelectors">Тип<br>
+<select id="typeSelectors">
+<option>Загрузка</option>
+</select></label><br>
+<button onclick ="filterByOption()">Отфильтровать по типу и атрибутам</button><br>
+
+<div id="propSelectors">
+</div>
+
+<button onclick ="google.script.run.filterByProperties(selectedProps)">Отфильтровать по атрибутам</button><br>
+
+<label for="propertySelector">Добавить атрибут<br>
+<select id="propertySelector">
+</select></label><br>
+
+<button onclick ="reloadPropertyList()">Перезагрузить список атрибутов</button><br>
+
+<script>
+
+$(document).ready(function() {
+    loadTypes();
+});
+
+function showWholeSpreadsheet() {
+google.script.run.showAllColumns();
+google.script.run.showAllRows();
+};
+
+function runPropertySync() {
+  google.script.run.updatePropertyOptions();
+}
+
+function reloadPropertyList() {
+    google.script.run.Writelog('Reloading property list...');
+    var currType = $('#typeSelectors').val();
+    google.script.run.lookupTypeColumn(currType);
+    $("#propSelectors").empty();
+    $("#propSelectors").append($('<label>Загружаются атрибуты...</label><br>'));
+    
+    google.script.run.Writelog('Getting property list');
+    
+    google.script.run.withSuccessHandler(updatePropCheckboxes)
+    .withFailureHandler(function(error) {Logger.log(error);})
+    .getPropertyList(currType);
+    
+    google.script.run.withSuccessHandler(createPropOptions)
+    .getPropertyColumns();    
+};
+
+function updatePropCheckboxes(props) {
+    google.script.run.Writelog('Updating property checkboxes');
+    selectedProps = props;
+    $("#propSelectors").empty();
+    for(var prop in props) {
+        var propDOM = $('<input type="checkbox" name="'+props[prop]+'">').val(props[prop]).prop('checked',true).on('change',onCheckboxChange);
+        $("#propSelectors").append(propDOM);
+        var propDOM = $('<label>'+props[prop]+'</label><br>');
+        $("#propSelectors").append(propDOM);
+    };
+    google.script.run.Writelog('Updated property checkboxes');
+};
+
+function onCheckboxChange() {
+  google.script.run.updateProperty($('#typeSelectors').val(), $(this).prop('name'), this.checked);
+};
+
+function loadTypes() {
+    google.script.run.withSuccessHandler(createTypeOptions)
+    .withFailureHandler(function(error) {Logger.log(error);})
+    .getTypeList();
+};
+
+function createTypeOptions(typeList) {
+    $("#typeSelectors").empty();
+    $('#typeSelectors').off('change',reloadPropertyList);
+    for(var i in typeList) {
+        var option = $('<option value="'+typeList[i]+'">'+typeList[i]+'</option>');
+        $("#typeSelectors").append(option);
+    }
+    $('#typeSelectors').on('change',reloadPropertyList);
+    reloadPropertyList();
+};
+
+function createPropOptions(propList) {
+    $('#propertySelector').off('change',onPropOptionChanged);
+    $('#propertySelector').empty();
+    for(var i=1;i<propList.length;i++) {
+        var option = $('<option value="'+propList[i]+'">'+propList[i]+'</option>');
+        $("#propertySelector").append(option);
+    }
+    $('#propertySelector').on('change',onPropOptionChanged);
+};
+
+function onPropOptionChanged() {
+    var propName =  $(this).val();
+    var propDOM = $('<input type="checkbox" name="'+propName+'">').val(propName).prop('checked',true).on('change',onCheckboxChange);
+    $("#propSelectors").append(propDOM);
+    var propDOM = $('<label>'+propName+'</label><br>');
+    $("#propSelectors").append(propDOM);
+    google.script.run.updateProperty($('#typeSelectors').val(),propName, true);
+};
+
+function filterByOption() {
+  var type = $('#typeSelectors').val();
+  google.script.run.filterByParentType(type);
+  google.script.run.filterByProperties(selectedProps);
+};
+
+</script>
